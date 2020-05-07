@@ -25,7 +25,7 @@ jobs:
           - name: windows
             os: windows-latest
             artifact_name: graphia.exe
-            asset_name: graphia-windows
+            asset_name: graphia.exe
           - name: macos
             os: macos-latest
             artifact_name: graphia

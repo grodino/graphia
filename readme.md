@@ -7,8 +7,9 @@ The goal was to measure some properties of time-evolving graphs in order to crea
 
 The first properties considered are :
 * Average degree : the average degree of the node at each time sample
-* Inter-contact histogram : the histogram of the time between two node come in contact again
-* Creation/deletion fraction : the number of created/deleted edges over the number of edges that could have been created/deleted
+* Inter-contact histogram : the histogram of the time between two node come in contact againp
+* Creation/deletion fraction : the number of created/deleted edges over the number of edges that could have been
+ created/deleted
 
 The first model used is the Edge-Markovian model :
 given a graph at a given time, the structure of the graph at the next time step depends directly on it. The stucture change is ruled by two independent parameters : the  probability that a new link is created and the probability that an existing link is deleted.
@@ -16,6 +17,23 @@ given a graph at a given time, the structure of the graph at the next time step 
 ## Installation
 
 ### Binary
+Go to the [release page](https://github.com/grodino/graphia/releases) of the repository and downoad the binary corresponding to your system.
+
+#### Windows
+Just run the binary : 
+```cmd
+graphia.exe -h
+```
+
+#### Linux
+Set the file permissions as executable : `chmod +x graphia-linux` and run it :
+```bash
+./graphia-linux -h
+```
+
+#### MacOs
+A binary is provided but not tested
+
 
 ### Cargo 
 This is the most reliable method. Install [Rust](https://www.rust-lang.org/tools/install) on your machine, clone the repository and run cargo.
