@@ -1,0 +1,15 @@
+[package]
+name = "graphia"
+version = "0.1.0"
+authors = ["Augustin Godinot <augustin.godinot@ens-paris-saclay.fr>"]
+edition = "2018"
+readme = "readme.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gnuplot = "0.0.34"
+rand = "0.7.3"
+structopt = "0.3"
+log = "0.4"
+pretty_env_logger = "0.4"
