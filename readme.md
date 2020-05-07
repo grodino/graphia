@@ -1,5 +1,5 @@
-# Graphia
-
+# Graphia 
+![Publish](https://github.com/grodino/graphia/workflows/Publish/badge.svg)
 ## Introduction
 `graphia` is a tool created for the "Machine Learning For Network Modeling" module of the ["parcours IA"](https://ens-paris-saclay.fr/etudes/diplome-ens-paris-saclay/parcours-intelligence-artificielle-ia).
 
