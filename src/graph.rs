@@ -296,16 +296,21 @@ impl Graph {
 
         events.sort_by(|e1, e2| e1.0.cmp(&e2.0));
         let mut fraction_deleted: Vec<f32> = Vec::with_capacity(self.duration as usize);
+        fraction_deleted.push(-1.0);
 
         let mut deleted_edges: i32 = 0;
         let mut created_edges: i32 = 0;
-        let mut n_links: i32 = 0;
+        let mut n_links: i32 = -1;
         let mut t = 0;
 
         for event in &events {
             while event.0 != t {
                 fraction_deleted.push(match n_links {
-                    0 => -1.0,
+                    -1 => {
+                        n_links = 0;
+                        -1.0
+                    },
+                    0 => 0.0,
                     _ => (deleted_edges as f32) / (n_links as f32),
                 });
 

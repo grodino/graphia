@@ -16,19 +16,17 @@ use models::EdgeMarkovian;
 #[derive(Debug, StructOpt)]
 #[structopt()]
 struct Opt {
-    /// Save analysis in folder
-    ///
-    /// If the flag is set, the user must provide the destination option
-    #[structopt(long, requires("destination"))]
-    save: bool,
-
-    /// Destination folder for analysis files. /!\ With a "/" at the end
-    #[structopt(short, long)]
-    destination: Option<PathBuf>,
+    /// Save analysis to provided folder path. Make sure to include a "/" at the end
+    #[structopt(long)]
+    save: Option<PathBuf>,
 
     /// Do not show the graphs
     #[structopt(long)]
     no_show: bool,
+
+    /// Where to truncate the inter-contacts histogram
+    #[structopt(short, long, default_value = "0.01")]
+    truncate: f32,
 
     #[structopt(subcommand)]
     cmd: Command,
@@ -93,7 +91,7 @@ fn main() -> Result<(), Error> {
         Command::Analyse { file } => {
             let analyse = Graph::from_file(file.to_str().unwrap())?;
 
-            analyse_graph(analyse, "")
+            analyse_graph(analyse, "", opt.truncate)
         },
         Command::Model { duration, n_nodes, creation_probability, deletion_probability } => {
             let model: Graph = Graph::from(EdgeMarkovian {
@@ -103,7 +101,7 @@ fn main() -> Result<(), Error> {
                 deletion_probability,
             });
 
-            analyse_graph(model, "")
+            analyse_graph(model, "", opt.truncate)
         },
         Command::Compare { file } => {
             let analyse: Graph = Graph::from_file(file.to_str().unwrap())?;
@@ -125,34 +123,35 @@ fn main() -> Result<(), Error> {
             });
 
             info!("Analysing graph");
-            let mut analyse_figs = analyse_graph(analyse, "REAL GRAPH: ");
+            let mut analyse_figs = analyse_graph(analyse, "REAL GRAPH: ", opt.truncate);
 
             info!("Analysing model");
-            let mut model_figs = analyse_graph(model, "MODEL: ");
+            let mut model_figs = analyse_graph(model, "MODEL: ", opt.truncate);
             analyse_figs.append(&mut model_figs);
 
             analyse_figs
         }
     };
 
-    if opt.save == true {
-        let destination: PathBuf = opt.destination.unwrap();
+    match opt.save {
+        Some(destination) => {
+            if destination.is_dir() == false {
+                std::fs::create_dir(&destination)?;
+            }
 
-        if destination.is_dir() == false {
-            std::fs::create_dir(&destination)?;
-        }
+            for (i, figure) in figures.iter_mut().enumerate() {
+                let mut path = PathBuf::from(&destination);
+                path.push(format!("figure_{}.png", i));
 
-        for (i, figure) in figures.iter_mut().enumerate() {
-            let mut path = PathBuf::from(&destination);
-            path.push(format!("figure_{}.png", i));
+                debug!("save file : {}", path.to_str().unwrap());
 
-            debug!("save file : {}", path.to_str().unwrap());
-
-            figure.save_to_png(
-                path.to_str().unwrap(),
-                1000, 500
-            ).unwrap();
-        }
+                figure.save_to_png(
+                    path.to_str().unwrap(),
+                    1000, 666
+                ).unwrap();
+            }
+        },
+        None => {}
     }
 
     if opt.no_show == false {
@@ -166,7 +165,7 @@ fn main() -> Result<(), Error> {
 
 /// Analyse a graph and plot its analysed properties. Helper function, not meant to be reused in an
 /// other context
-fn analyse_graph(g: Graph, title_prefix: &str) -> Vec<Figure>{
+fn analyse_graph(g: Graph, title_prefix: &str, truncate: f32) -> Vec<Figure>{
     info!("number of nodes: {}", g.nodes.len());
     info!("number of contacts: {}", g.contacts.len());
     info!("duration: {}", g.duration);
@@ -176,17 +175,21 @@ fn analyse_graph(g: Graph, title_prefix: &str) -> Vec<Figure>{
     let max: f32 = *contacts_histogram.iter().max().unwrap_or(&0) as f32;
 
     contacts_histogram = contacts_histogram.into_iter()
-        .filter(|&x| x >= (0.01 * max) as i32)
+        .filter(|&x| x >= (truncate * max) as i32)
         .collect();
 
     // Diplay contacts histogram
     let mut histo_fig = Figure::new();
     histo_fig.axes2d()
         .boxes(&mut(0..contacts_histogram.len()), &contacts_histogram, &[Color("black")])
-        .set_x_label("number of inter-contacts", &[])
-        .set_y_label("inter-contact time (in sample)", &[]);
+        .set_y_label("number of inter-contacts", &[])
+        .set_x_label("inter-contact duration (in sample)", &[]);
     histo_fig.set_title(
-        format!("{}Inter-contacts histogram (truncated to 1% of max intercontact)", title_prefix).as_str()
+        format!(
+            "{}Inter-contacts histogram (truncated to {}% of max intercontact)",
+            title_prefix,
+            (truncate * 100.0) as u8
+        ).as_str()
     );
 
     // Compute and display fraction of created and deleted links
