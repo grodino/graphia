@@ -10,18 +10,17 @@ mod graph;
 use graph::Graph;
 
 mod models;
-use models::EdgeMarkovian;
 
 /// Dynamic graphs analysis and simulation.
 #[derive(Debug, StructOpt)]
 #[structopt()]
 struct Opt {
     /// Save analysis to provided folder path. Make sure to include a "/" at the end
-    #[structopt(long)]
+    #[structopt(short, long)]
     save: Option<PathBuf>,
 
     /// Do not show the graphs
-    #[structopt(long)]
+    #[structopt(short = "n", long)]
     no_show: bool,
 
     /// Where to truncate the inter-contacts histogram
@@ -46,8 +45,8 @@ enum Command {
         file: PathBuf,
     },
 
-    /// Generate a graph using Edge-Markovian model
-    Model {
+    /// Generate a graph using an EdgeMarkovian model
+    Simulate {
         /// Number of time steps to generate
         #[structopt(short = "D", long)]
         duration: i32,
@@ -67,6 +66,18 @@ enum Command {
 
     /// Analyse a graph and compare it to it's modeled version using Edge-Markovian model
     Compare {
+        /// Model to simulate and compare with the data
+        ///
+        /// Can be :
+        /// * `1`: Edge Markovian model
+        /// * `2`: Time Dependent Edge Markovian model
+        /// * `3`: Time Dependent Edge Markovian model with delayed nodes
+        #[structopt(long_help = "Can be : \n \
+            \t * 1: Edge Markovian model \n \
+            \t * 2: Time Dependent Edge Markovian model \n \
+            \t * 3: Time Dependent Edge Markovian model with delayed nodes")]
+        model: u8,
+
         /// Graph input file
         ///
         /// The file should be formatted as such : <n1 n2 ts te> where n1 and n2
@@ -86,47 +97,98 @@ fn main() -> Result<(), Error> {
     std::env::set_var("RUST_LOG", "TRACE");
     pretty_env_logger::init();
 
+    let truncate = opt.truncate;
+
     // let (mut histo_fig, mut frac_fig, mut degree_fig) = match opt.cmd {
     let mut figures: Vec<Figure> = match opt.cmd {
         Command::Analyse { file } => {
             let analyse = Graph::from_file(file.to_str().unwrap())?;
 
-            analyse_graph(analyse, "", opt.truncate)
+            analyse_graph(&analyse, "", opt.truncate)
         },
-        Command::Model { duration, n_nodes, creation_probability, deletion_probability } => {
-            let model: Graph = Graph::from(EdgeMarkovian {
+        Command::Simulate { duration, n_nodes, creation_probability, deletion_probability } => {
+            let simulation: Graph = Graph::from(models::EdgeMarkovian {
                 duration,
                 number_of_nodes: n_nodes,
                 creation_probability,
                 deletion_probability,
             });
 
-            analyse_graph(model, "", opt.truncate)
+            analyse_graph(&simulation, "", opt.truncate)
         },
-        Command::Compare { file } => {
+        Command::Compare { model, file } => {
+            debug!("Analysing graph");
             let analyse: Graph = Graph::from_file(file.to_str().unwrap())?;
 
             let frac_created = analyse.fraction_created_links();
             let frac_deleted = analyse.fraction_deleted_links();
 
-            // Compute Evolving-EdgeMarkovian model parameters
-            let creation_probability = frac_created.iter().filter(|&x| x >= &0.0)
-                .sum::<f32>() / frac_created.len() as f32;
-            let deletion_probability = frac_deleted.iter().filter(|&x| x >= &0.0)
-                .sum::<f32>() / frac_deleted.len() as f32;
+            let mut analyse_figs = analyse_graph(&analyse, "REAL GRAPH: ", opt.truncate);
 
-            let model: Graph = Graph::from(EdgeMarkovian{
-                duration: analyse.duration,
-                number_of_nodes: analyse.nodes.len() as i32,
-                creation_probability,
-                deletion_probability
-            });
+            debug!("Creating model (can take a very long time)");
+            let simulation: Graph;
 
-            info!("Analysing graph");
-            let mut analyse_figs = analyse_graph(analyse, "REAL GRAPH: ", opt.truncate);
+            match model {
+                1 => {
+                    // Compute Evolving-EdgeMarkovian model parameters
+                    let creation_probability = frac_created.iter().filter(|&x| x >= &0.0)
+                        .sum::<f32>() / frac_created.len() as f32;
+                    let deletion_probability = frac_deleted.iter().filter(|&x| x >= &0.0)
+                        .sum::<f32>() / frac_deleted.len() as f32;
+
+                    simulation = Graph::from(models::EdgeMarkovian {
+                        duration: analyse.duration,
+                        number_of_nodes: analyse.nodes.len() as i32,
+                        creation_probability,
+                        deletion_probability,
+                    });
+                },
+                2 => {
+                    // remove all "-1" in the data
+                    let creation_probability = frac_created.iter()
+                        .map(|&frac| 0f32.max(frac))
+                        .collect();
+                    let deletion_probability = frac_deleted.iter()
+                        .map(|&frac| 0f32.max(frac))
+                        .collect();
+
+                    simulation = Graph::from(models::TimeDependentEdgeMarkovian {
+                        duration: analyse.duration,
+                        number_of_nodes: analyse.nodes.len() as i32,
+                        creation_probability,
+                        deletion_probability,
+                    });
+                },
+                3 => {
+                    // remove all "-1" in the data
+                    let creation_probability = frac_created.iter()
+                        .map(|&frac| 0f32.max(frac))
+                        .collect();
+                    let deletion_probability = frac_deleted.iter()
+                        .map(|&frac| 0f32.max(frac))
+                        .collect();
+
+                    // Compute and truncate contacts histogram
+                    let mut contacts_histogram: Vec<i32> = analyse.inter_contact_histo();
+                    let max: f32 = *contacts_histogram.iter().max().unwrap_or(&0) as f32;
+
+                    contacts_histogram = contacts_histogram.into_iter()
+                        .filter(|&x| x >= (truncate * max) as i32)
+                        .collect();
+
+                    simulation = Graph::from(models::DelayedTimeDependentEdgeMarkovian {
+                        duration: analyse.duration,
+                        number_of_nodes: analyse.nodes.len() as i32,
+                        creation_probability,
+                        deletion_probability,
+                        intercontacts_histogram: contacts_histogram,
+                    });
+                }
+                _ => unimplemented!()
+            }
 
             info!("Analysing model");
-            let mut model_figs = analyse_graph(model, "MODEL: ", opt.truncate);
+            let mut model_figs = analyse_graph(&simulation, "MODEL: ", opt.truncate);
             analyse_figs.append(&mut model_figs);
 
             analyse_figs
@@ -165,7 +227,7 @@ fn main() -> Result<(), Error> {
 
 /// Analyse a graph and plot its analysed properties. Helper function, not meant to be reused in an
 /// other context
-fn analyse_graph(g: Graph, title_prefix: &str, truncate: f32) -> Vec<Figure>{
+fn analyse_graph(g: &Graph, title_prefix: &str, truncate: f32) -> Vec<Figure>{
     info!("number of nodes: {}", g.nodes.len());
     info!("number of contacts: {}", g.contacts.len());
     info!("duration: {}", g.duration);
@@ -228,8 +290,8 @@ fn analyse_graph(g: Graph, title_prefix: &str, truncate: f32) -> Vec<Figure>{
         .sum::<f32>() / frac_created.len() as f32;
     let deletion_probability = frac_deleted.iter().filter(|&x| x >= &0.0)
         .sum::<f32>() / frac_deleted.len() as f32;
-    info!("creation probability {}", creation_probability);
-    info!("deletion probability {}", deletion_probability);
+    info!("average creation probability {}", creation_probability);
+    info!("average deletion probability {}", deletion_probability);
 
     vec![histo_fig, frac_fig, degree_fig]
 }

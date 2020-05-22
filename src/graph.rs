@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use std::io::Error;
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 use std::{fmt, fs};
 
 #[derive(Debug)]

@@ -16,8 +16,8 @@ given a graph at a given time, the structure of the graph at the next time step 
 
 ## Installation
 
-### Binary
-Go to the [release page](https://github.com/grodino/graphia/releases) of the repository and downoad the binary corresponding to your system.
+### Use precompiled binary
+Go to the [release page](https://github.com/grodino/graphia/releases) of the repository and download the binary corresponding to your system.
 
 #### Windows
 Just run the binary : 
@@ -35,7 +35,7 @@ Set the file permissions as executable : `chmod +x graphia-linux` and run it :
 A binary is provided but not tested
 
 
-### Cargo 
+### Install via Cargo 
 This is the most reliable method. Install [Rust](https://www.rust-lang.org/tools/install) on your machine, clone the repository and run cargo.
 
 Once Rust is installed, run :
@@ -44,4 +44,4 @@ git clone TODO
 cargo run -- --help
 ```
 
-> The `--` after `cargo run` are here to pass the arguments to `graphia` after it has been built by `cargo`.
+> The `--` after `cargo run` are here to pass the command line arguments to `graphia` after it has been built by `cargo`.
