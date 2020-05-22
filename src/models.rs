@@ -1,11 +1,9 @@
 use std::convert::From;
 use std::ops::Range;
-use std::{thread, time};
 
 use rand::{
     prelude::*,
     Rng,
-    seq::SliceRandom,
     distributions::weighted::alias_method::WeightedIndex,
 };
 use indicatif::{ProgressBar, ProgressStyle, ProgressIterator};

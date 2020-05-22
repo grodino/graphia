@@ -75,7 +75,7 @@ enum Command {
         #[structopt(long_help = "Can be : \n \
             \t * 1: Edge Markovian model \n \
             \t * 2: Time Dependent Edge Markovian model \n \
-            \t * 3: Time Dependent Edge Markovian model with delayed nodes")]
+            \t * 3: Time Dependent Edge Markovian model with delayed nodes (unstable, does not work properly")]
         model: u8,
 
         /// Graph input file
